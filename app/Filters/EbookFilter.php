@@ -18,9 +18,15 @@ class EbookFilter
     }
 
     protected function filterSearch($query, $term)
-    {
-        $query->where('title', 'like', "%$term%");
-    }
+{
+    $query->where(function($q) use ($term) {
+        $q->where('title', 'like', "%$term%")
+          ->orWhere('description', 'like', "%$term%")
+          ->orWhereHas('categories', function($categoryQuery) use ($term) {
+              $categoryQuery->where('name', 'like', "%$term%");
+          });
+    });
+}
 
     protected function filterCategories($query, $categories)
     {

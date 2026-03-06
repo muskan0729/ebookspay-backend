@@ -15,6 +15,10 @@ class Order extends Model
         'address',
         'pincode',
         'bill_amount',
+        'order_no',
+        'status',
+        'transaction_id', // ✅ ADD THIS
+        'payment_response', // ✅ ADD THIS (optional, for debugging)
     ];
 
     // Relationships
