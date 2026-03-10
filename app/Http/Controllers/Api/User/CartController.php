@@ -87,6 +87,7 @@ $response = [
 public function addItem(Request $request)
 {
     try {
+
         $request->validate([
             'product_id' => 'required|exists:ebooks,id',
             'quantity'   => 'required|integer|min:1',
@@ -99,17 +100,31 @@ public function addItem(Request $request)
             'status'  => 'ACTIVE',
         ]);
 
-        $item = CartItem::firstOrNew([
-            'cart_id'  => $cart->id,
-            'ebook_id' => $product->id
-        ]);
+        // Check if item already exists
+        $item = CartItem::where('cart_id', $cart->id)
+                        ->where('ebook_id', $product->id)
+                        ->first();
 
-        $item->quantity = ($item->quantity ?? 0) + $request->quantity;
-        $item->price = $product->price; // backend price only
-        
-        // ✅ FIX: Calculate and save total_price
+        if ($item) {
+
+            // Increase quantity
+            $item->quantity += $request->quantity;
+
+        } else {
+
+            // Create new item
+            $item = new CartItem();
+            $item->cart_id = $cart->id;
+            $item->ebook_id = $product->id;
+            $item->quantity = $request->quantity;
+            $item->price = $product->price;
+
+        }
+
+        // Always update price and total
+        $item->price = $product->price;
         $item->total_price = $item->price * $item->quantity;
-        
+
         $item->save();
 
         $cart->recalculateTotals();
@@ -118,10 +133,12 @@ public function addItem(Request $request)
         return response()->json($cart, 200);
 
     } catch (\Throwable $th) {
+
         return response()->json([
             'error' => 'Failed to add item',
             'details' => $th->getMessage()
         ], 500);
+
     }
 }
     // Update quantity
