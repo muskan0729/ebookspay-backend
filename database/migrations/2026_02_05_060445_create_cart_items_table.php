@@ -9,16 +9,31 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('cart_items', function (Blueprint $table) {
+
             $table->id();
-            $table->foreignId('cart_id')->constrained()->onDelete('cascade');
-            // ebook_id references ebooks.id
-            $table->unsignedBigInteger('ebook_id')->nullable();
-            $table->foreign('ebook_id')->references('id')->on('ebooks')->onDelete('cascade');
-            // $table->string('title'); // snapshot title
-            $table->decimal('price', 10, 2)->nullable(); // snapshot price
-            $table->integer('quantity')->nullable();
+
+            $table->foreignId('cart_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            // ebook reference
+            $table->unsignedBigInteger('ebook_id');
+
+            $table->foreign('ebook_id')
+                ->references('id')
+                ->on('ebooks')
+                ->cascadeOnDelete();
+
+            // snapshot data
+            $table->decimal('price', 10, 2);
+            $table->integer('quantity')->default(1);
             $table->decimal('total_price', 10, 2)->default(0.00);
+
             $table->timestamps();
+
+            // ✅ PREVENT SAME EBOOK DUPLICATE IN SAME CART
+            $table->unique(['cart_id', 'ebook_id']);
+
         });
     }
 
