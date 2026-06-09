@@ -137,7 +137,8 @@ protected $secret        = "4fbb61f1f5a95a242b14f4e44218dcc5";
                 'buyer_email' => $postedData['buyer_email'],
                 'buyer_phone' => $postedData['buyer_phone'],
                 'call_type' => 'upiqr',
-                'mer_dom' => base64_encode("https://omishajewels.com"),
+                // 'mer_dom' => base64_encode("https://omishajewels.com"),
+                'mer_dom' => base64_encode("https://ebookspay.co.in"),
                 'customer_consent' => 'Y'
             ];
 

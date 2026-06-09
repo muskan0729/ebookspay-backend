@@ -41,14 +41,16 @@ class Ebook extends Model
             ->withPivot('quantity', 'price');
     }
 
-    public function getImageAttribute()
-    {
-        $image = $this->images->first();
+public function getImageAttribute()
+{
+    $image = $this->images->first();
 
-        return $image
-            ? asset('storage/' . $image->image_path)
-            : asset('storage/defaults/ebook.png');
+    if ($image && $image->image_path) {
+        return url('laravel_project/public/' . ltrim($image->image_path, '/'));
     }
+
+    return null;
+}
     
     public function getDownloadUrlAttribute()
 {
@@ -64,7 +66,7 @@ class Ebook extends Model
         ->exists();
 
     return $hasPurchased
-        ? asset('storage/' . $this->ebook_file)
+        ? url('laravel_project/public/' . $this->ebook_file)
         : null;
 }
 

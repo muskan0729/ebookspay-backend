@@ -23,10 +23,10 @@ class Cart extends Model
     ];
 
     // Cart has many items
-    public function items()
-    {
-        return $this->hasMany(CartItem::class);
-    }
+public function items()
+{
+    return $this->hasMany(CartItem::class, 'cart_id');
+}
 
     // Cart belongs to a user
     public function user()

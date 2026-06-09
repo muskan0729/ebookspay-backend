@@ -17,36 +17,60 @@ use App\Mail\PasswordResetMail;
 class UserController extends Controller
 {
     // ================= REGISTER =================
-    public function register(Request $request)
-    {
-        try {
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
-                'password' => 'required|string|min:6|confirmed',
-            ]);
+ public function register(Request $request)
+{
+    try {
 
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'role' => $request->role ?? "user",
-            ]);
+        // ✅ VALIDATION
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+        // ✅ CREATE USER
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => $request->role ?? "user",
+        ]);
 
-            return response()->json([
-                'message' => 'User registered successfully',
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Registration failed',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        // ✅ CREATE TOKEN
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        // ✅ RETURN FULL RESPONSE (🔥 FIX)
+        return response()->json([
+            'message' => 'User registered successfully',
+
+            // 🔑 AUTH
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+
+            // 👤 USER DATA (IMPORTANT)
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+
+        ], 201);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+
+        // ✅ PROPER VALIDATION ERROR (NOT 500)
+        return response()->json([
+            'message' => 'Validation failed',
+            'errors' => $e->errors()
+        ], 422);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'message' => 'Registration failed',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     // ================= LOGIN =================
     public function login(Request $request)

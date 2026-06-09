@@ -51,6 +51,7 @@ return array(
     'App\\Models\\Category' => $baseDir . '/app/Models/Category.php',
     'App\\Models\\Coupon' => $baseDir . '/app/Models/Coupon.php',
     'App\\Models\\Ebook' => $baseDir . '/app/Models/Ebook.php',
+    'App\\Models\\EbookAccess' => $baseDir . '/app/Models/EbookAccess.php',
     'App\\Models\\EbookImage' => $baseDir . '/app/Models/EbookImage.php',
     'App\\Models\\Order' => $baseDir . '/app/Models/Order.php',
     'App\\Models\\User' => $baseDir . '/app/Models/User.php',
@@ -6313,5 +6314,6 @@ return array(
     'Whoops\\Util\\Misc' => $vendorDir . '/filp/whoops/src/Whoops/Util/Misc.php',
     'Whoops\\Util\\SystemFacade' => $vendorDir . '/filp/whoops/src/Whoops/Util/SystemFacade.php',
     'Whoops\\Util\\TemplateHelper' => $vendorDir . '/filp/whoops/src/Whoops/Util/TemplateHelper.php',
+    'paytm\\paytmchecksum\\PaytmChecksum' => $vendorDir . '/paytm/paytmchecksum/paytmchecksum/PaytmChecksum.php',
     'voku\\helper\\ASCII' => $vendorDir . '/voku/portable-ascii/src/voku/helper/ASCII.php',
 );

@@ -4,93 +4,80 @@ namespace App\Http\Controllers\Api\User;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Ebook;
 
 class CartController extends Controller
 {
-    // Get current user's cart
-    // public function viewCart()
-//    //     try {
-    //         $cart = Cart::with('items.ebook')
-    //             ->firstOrCreate([
-    //                 'user_id' => auth()->id(),
-    //                 'status'  => 'ACTIVE'
-    //             ]);
 
-    //         return response()->json($cart, 200);
+    /*
+    |--------------------------------------------------------------------------
+    | View Cart
+    |--------------------------------------------------------------------------
+    */
 
-    //     } catch (\Throwable $th) {
-    //         return response()->json([
-    //             'error' => 'Failed to fetch cart',
-    //             'details' => $th->getMessage()
-    //         ], 500);
-    //     }
-    // }
-    
     public function viewCart()
-{
-    try {
-        $cart = Cart::with('items.ebook.images') // eager load images
-            ->firstOrCreate([
-                'user_id' => auth()->id(),
-                'status'  => 'ACTIVE'
-            ]);
+    {
+        try {
 
-        // Make sure totals are up-to-date
-        $cart->recalculateTotals();
+            $cart = Cart::with('items.ebook.images')
+                ->firstOrCreate([
+                    'user_id' => auth()->id(),
+                    'status'  => 'ACTIVE'
+                ]);
 
-        // Calculate subtotal (sum of all items' total_price)
-        $subtotal = $cart->items->sum(function ($item) {
-    return $item->price;
-});
+            $cart->recalculateTotals();
 
-// Format subtotal as decimal with 2 places
-$subtotal = number_format($subtotal, 2, '.', ''); // e.g., 123.45
+            // Correct subtotal calculation
+            $subtotal = $cart->items->sum('total_price');
 
-// Transform the response
-$response = [
-    'id'       => $cart->id,
-    'user_id'  => $cart->user_id,
-    'status'   => $cart->status,
-    'subtotal' => $subtotal,
-    'items'    => $cart->items->map(function ($item) {
-        return [
-            'id'       => $item->id,
-            'quantity' => $item->quantity,
-            'price'    => number_format($item->price, 2, '.', ''),
-            'total'    => number_format($item->total_price, 2, '.', ''),
-            'ebook'    => [
-                'id'    => $item->ebook->id,
-                'title' => $item->ebook->title,
-                'image' => $item->ebook->image, // uses accessor
-            ]
-        ];
-    
-            }),
-        ];
+            $response = [
+                'id'       => $cart->id,
+                'user_id'  => $cart->user_id,
+                'status'   => $cart->status,
+                'subtotal' => number_format($subtotal, 2, '.', ''),
+                'items'    => $cart->items->map(function ($item) {
 
-        return response()->json($response, 200);
+                    return [
+                        'id'       => $item->id,
+                        'quantity' => $item->quantity,
+                        'price'    => number_format($item->price, 2, '.', ''),
+                        'total'    => number_format($item->total_price, 2, '.', ''),
+                        'ebook'    => [
+                            'id'    => $item->ebook->id,
+                            'title' => $item->ebook->title,
+                            'image' => $item->ebook->image
+                        ]
+                    ];
+                })
+            ];
 
-    } catch (\Throwable $th) {
-        return response()->json([
-            'error'   => 'Failed to fetch cart',
-            'details' => $th->getMessage()
-        ], 500);
+            return response()->json($response, 200);
+
+        } catch (\Throwable $th) {
+
+            return response()->json([
+                'error'   => 'Failed to fetch cart',
+                'details' => $th->getMessage()
+            ], 500);
+
+        }
     }
-}
 
 
-    // Add item to cart
-    // Add item to cart
+    /*
+    |--------------------------------------------------------------------------
+    | Add Item To Cart
+    |--------------------------------------------------------------------------
+    */
 public function addItem(Request $request)
 {
     try {
 
         $request->validate([
             'product_id' => 'required|exists:ebooks,id',
-            'quantity'   => 'required|integer|min:1',
         ]);
 
         $product = Ebook::findOrFail($request->product_id);
@@ -101,31 +88,25 @@ public function addItem(Request $request)
         ]);
 
         // Check if item already exists
-        $item = CartItem::where('cart_id', $cart->id)
-                        ->where('ebook_id', $product->id)
-                        ->first();
+        $existingItem = CartItem::where('cart_id', $cart->id)
+            ->where('ebook_id', $product->id)
+            ->first();
 
-        if ($item) {
-
-            // Increase quantity
-            $item->quantity += $request->quantity;
-
-        } else {
-
-            // Create new item
-            $item = new CartItem();
-            $item->cart_id = $cart->id;
-            $item->ebook_id = $product->id;
-            $item->quantity = $request->quantity;
-            $item->price = $product->price;
-
+        // If already exists, return message (do not add again)
+        if ($existingItem) {
+            return response()->json([
+                'message' => 'Product already in cart'
+            ], 200);
         }
 
-        // Always update price and total
-        $item->price = $product->price;
-        $item->total_price = $item->price * $item->quantity;
-
-        $item->save();
+        // Create new cart item
+        $item = CartItem::create([
+            'cart_id' => $cart->id,
+            'ebook_id' => $product->id,
+            'quantity' => 1,
+            'price' => $product->price,
+            'total_price' => $product->price
+        ]);
 
         $cart->recalculateTotals();
         $cart->load('items.ebook');
@@ -141,80 +122,107 @@ public function addItem(Request $request)
 
     }
 }
-    // Update quantity
-   // Update quantity
-public function updateItem(Request $request, $itemId)
-{
-    try {
-        $request->validate([
-            'quantity' => 'required|integer|min:0',
-        ], [
-            'quantity.required' => 'Quantity is required',
-            'quantity.integer'  => 'Quantity must be a number',
-            'quantity.min'      => 'Quantity must be at least 0',
-        ]);
 
-        $item = CartItem::findOrFail($itemId);
-        $item->quantity = $request->quantity;
+    /*
+    |--------------------------------------------------------------------------
+    | Update Cart Item Quantity
+    |--------------------------------------------------------------------------
+    */
 
-        if ($item->quantity == 0) {
-            $item->delete();
-        } else {
-            // ✅ FIX: Update total_price when quantity changes
-            $item->total_price = $item->price * $item->quantity;
-            $item->save();
-        }
-
-        $item->cart->recalculateTotals();
-        $item->cart->load('items.ebook');
-
-        return response()->json($item->cart, 200);
-
-    } catch (\Throwable $th) {
-        return response()->json([
-            'error' => 'Failed to update item',
-            'details' => $th->getMessage()
-        ], 500);
-    }
-}
-    // Remove item
-    public function removeItem($itemId)
+    public function updateItem(Request $request, $itemId)
     {
         try {
-            $item = CartItem::findOrFail($itemId);
-            $cart = $item->cart;
 
-            $item->delete();
+            $request->validate([
+                'quantity' => 'required|integer|min:0',
+            ]);
+
+            $item = CartItem::findOrFail($itemId);
+
+            if ($request->quantity == 0) {
+
+                $item->delete();
+
+            } else {
+
+                $item->quantity = $request->quantity;
+                $item->total_price = $item->price * $item->quantity;
+                $item->save();
+
+            }
+
+            $cart = $item->cart;
             $cart->recalculateTotals();
             $cart->load('items.ebook');
 
             return response()->json($cart, 200);
 
         } catch (\Throwable $th) {
+
+            return response()->json([
+                'error' => 'Failed to update item',
+                'details' => $th->getMessage()
+            ], 500);
+
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Remove Item
+    |--------------------------------------------------------------------------
+    */
+
+    public function removeItem($itemId)
+    {
+        try {
+
+            $item = CartItem::findOrFail($itemId);
+            $cart = $item->cart;
+
+            $item->delete();
+
+            $cart->recalculateTotals();
+            $cart->load('items.ebook');
+
+            return response()->json($cart, 200);
+
+        } catch (\Throwable $th) {
+
             return response()->json([
                 'error' => 'Failed to remove item',
                 'details' => $th->getMessage()
             ], 500);
+
         }
     }
 
-    // Clear cart
+
+    /*
+    |--------------------------------------------------------------------------
+    | Clear Cart
+    |--------------------------------------------------------------------------
+    */
+
     public function clearCart()
     {
         try {
-            $userId = auth()->id();
 
-            $cart = Cart::where('user_id', $userId)
-                        ->where('status', 'ACTIVE')
-                        ->first();
+            $cart = Cart::where('user_id', auth()->id())
+                ->where('status', 'ACTIVE')
+                ->first();
 
             if (!$cart) {
+
                 return response()->json([
                     'message' => 'No active cart found'
                 ], 404);
+
             }
 
-            $cart->items()->delete(); // safer than deleting cart
+            $cart->items()->delete();
+
             $cart->recalculateTotals();
 
             return response()->json([
@@ -222,10 +230,13 @@ public function updateItem(Request $request, $itemId)
             ], 200);
 
         } catch (\Throwable $th) {
+
             return response()->json([
                 'error' => 'Failed to clear cart',
                 'details' => $th->getMessage()
             ], 500);
+
         }
     }
+
 }

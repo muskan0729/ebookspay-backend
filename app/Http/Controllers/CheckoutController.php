@@ -2,18 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cart;
+use App\Models\Ebook;
+use App\Models\Order;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-
-use App\Models\Cart;
-use App\Models\Order;
-use App\Models\Ebook;
 
 class CheckoutController extends Controller
 {
     // ebooks => usually no shipping, tax maybe 0 (change if needed)
     private float $taxRate = 0.00;     // set 0.18 if you want GST
+
     private float $shipping = 0.00;
 
     // POST /api/checkout/validate
@@ -21,11 +23,11 @@ class CheckoutController extends Controller
     public function validateCheckout(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id'      => 'required|exists:users,id',
-            'cart_id'      => 'required|exists:carts,id',
+            'user_id' => 'required|exists:users,id',
+            'cart_id' => 'required|exists:carts,id',
             'phone_number' => 'required|string|max:15',
-            'address'      => 'required|string|max:500',
-            'pincode'      => 'required|string|max:10',
+            'address' => 'required|string|max:500',
+            'pincode' => 'required|string|max:10',
 
             // optional anti-tamper check
             'expected_total' => 'nullable|numeric|min:0',
@@ -41,7 +43,7 @@ class CheckoutController extends Controller
             ->where('status', 'ACTIVE')
             ->first();
 
-        if (!$cart) {
+        if (! $cart) {
             return response()->json(['status' => false, 'message' => 'Invalid or inactive cart'], 400);
         }
 
@@ -58,17 +60,18 @@ class CheckoutController extends Controller
         // Price validation (recommended):
         // Compare cart_items.price vs current ebook price
         foreach ($cart->items as $item) {
-            if (!$item->ebook) {
+            if (! $item->ebook) {
                 $issues[] = [
                     'type' => 'EBOOK_MISSING',
                     'cart_item_id' => $item->id,
                     'message' => 'Ebook not found.',
                 ];
+
                 continue;
             }
 
             $currentPrice = (float) ($item->ebook->price ?? 0);
-            $cartPrice    = (float) ($item->price ?? 0);
+            $cartPrice = (float) ($item->price ?? 0);
 
             if (abs($currentPrice - $cartPrice) > 0.01) {
                 $issues[] = [
@@ -94,7 +97,7 @@ class CheckoutController extends Controller
             // }
         }
 
-        if (!empty($issues)) {
+        if (! empty($issues)) {
             return response()->json([
                 'status' => false,
                 'message' => 'Checkout validation failed',
@@ -146,7 +149,7 @@ class CheckoutController extends Controller
             ->where('status', 'ACTIVE')
             ->first();
 
-        if (!$cart) {
+        if (! $cart) {
             return response()->json(['status' => false, 'message' => 'Invalid or inactive cart'], 400);
         }
 
@@ -181,14 +184,14 @@ class CheckoutController extends Controller
     public function placeOrder(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id'      => 'required|exists:users,id',
-            'cart_id'      => 'required|exists:carts,id',
+            'user_id' => 'required|exists:users,id',
+            'cart_id' => 'required|exists:carts,id',
             'phone_number' => 'required|string|max:15',
-            'address'      => 'required|string|max:500',
-            'pincode'      => 'required|string|max:10',
+            'address' => 'required|string|max:500',
+            'pincode' => 'required|string|max:10',
 
             // for now only cash
-            'payment_method' => 'required|string|in:CASH',
+            'payment_method' => 'required|string|in:CASH,PAYTM,QR',
         ]);
 
         if ($validator->fails()) {
@@ -201,7 +204,7 @@ class CheckoutController extends Controller
             ->where('status', 'ACTIVE')
             ->first();
 
-        if (!$cart) {
+        if (! $cart) {
             return response()->json(['status' => false, 'message' => 'Invalid or inactive cart'], 400);
         }
 
@@ -215,11 +218,11 @@ class CheckoutController extends Controller
 
         // price validation again (safe)
         foreach ($cart->items as $item) {
-            if (!$item->ebook) {
+            if (! $item->ebook) {
                 return response()->json(['status' => false, 'message' => 'One or more ebooks are missing'], 400);
             }
             $currentPrice = (float) ($item->ebook->price ?? 0);
-            $cartPrice    = (float) ($item->price ?? 0);
+            $cartPrice = (float) ($item->price ?? 0);
 
             if (abs($currentPrice - $cartPrice) > 0.01) {
                 return response()->json([
@@ -239,24 +242,24 @@ class CheckoutController extends Controller
 
         // ✅ Create order (adjust fields to match your orders table)
         $order = Order::create([
-            'user_id'      => $request->user_id,
-            'cart_id'      => $request->cart_id,
+            'user_id' => $request->user_id,
+            'cart_id' => $request->cart_id,
             'phone_number' => $request->phone_number,
-            'address'      => $request->address,
-            'pincode'      => $request->pincode,
-            'bill_amount'  => round($grandTotal, 2),
+            'address' => $request->address,
+            'pincode' => $request->pincode,
+            'bill_amount' => round($grandTotal, 2),
 
             // if you have these columns:
-            'order_no'       => 'ORD-' . strtoupper(Str::random(10)),
-             'status' => 'pending', // ✅ IMPORTANT: Initial status
-            //'payment_mode'   => 'CASH',
-            //'payment_status' => 'PENDING',
-            //'order_status'   => 'PLACED',
+            'order_no' => 'ORD-'.strtoupper(Str::random(10)),
+            'status' => 'pending', // ✅ IMPORTANT: Initial status
+            // 'payment_mode'   => 'CASH',
+            // 'payment_status' => 'PENDING',
+            // 'order_status'   => 'PLACED',
         ]);
 
         // update cart status
-        //$cart->status = 'CHECKED_OUT';
-        //$cart->save();
+        // $cart->status = 'CHECKED_OUT';
+        // $cart->save();
 
         return response()->json([
             'status' => true,
@@ -270,21 +273,21 @@ class CheckoutController extends Controller
             ],
         ], 201);
     }
-    
-        public function checkout(Request $request)
+
+    public function checkout(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id'      => 'required|exists:users,id',
-            'cart_id'      => 'required|exists:carts,id',
+            'user_id' => 'required|exists:users,id',
+            'cart_id' => 'required|exists:carts,id',
             'phone_number' => 'required|string|max:15',
-            'address'      => 'required|string',
-            'pincode'      => 'required|string|max:10',
-            'bill_amount'  => 'required|numeric|min:0',
+            'address' => 'required|string',
+            'pincode' => 'required|string|max:10',
+            'bill_amount' => 'required|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -294,27 +297,27 @@ class CheckoutController extends Controller
             ->where('user_id', $request->user_id)
             ->where('status', 'ACTIVE')
             ->first();
-        
-        if (!$cart) {
+
+        if (! $cart) {
             return response()->json([
-                'message' => 'Invalid or inactive cart'
+                'message' => 'Invalid or inactive cart',
             ], 400);
         }
 
         if ($cart->items->isEmpty()) {
             return response()->json([
-                'message' => 'Cart is empty'
+                'message' => 'Cart is empty',
             ], 400);
         }
 
         // 3️⃣ Store order
         $order = Order::create([
-            'user_id'      => $request->user_id,
-            'cart_id'      => $request->cart_id,
+            'user_id' => $request->user_id,
+            'cart_id' => $request->cart_id,
             'phone_number' => $request->phone_number,
-            'address'      => $request->address,
-            'pincode'      => $request->pincode,
-            'bill_amount'  => $request->bill_amount,
+            'address' => $request->address,
+            'pincode' => $request->pincode,
+            'bill_amount' => $request->bill_amount,
         ]);
 
         // (Optional) update cart status
@@ -324,114 +327,190 @@ class CheckoutController extends Controller
         // 4️⃣ Response
         return response()->json([
             'message' => 'Order placed successfully',
-            'order'   => $order
+            'order' => $order,
         ], 201);
     }
 
-public function orderhistory(Request $request, $userId)
-{
-    $orders = Order::with('cart.items.ebook')
-        ->where('user_id', $userId)
-        ->where('status', 'completed') // ✅ Only show completed orders
-        ->orderBy('created_at', 'desc') // ✅ Sort by newest first
-        ->get();
-
-    if ($orders->isEmpty()) {
-        return response()->json([
-            'status' => false,
-            'message' => 'No orders found'
-        ]);
-    }
-
-    // Transform response to include ebook details neatly
-    $data = $orders->map(function($order) {
-        return [
-            'id' => $order->id,
-            'order_no' => $order->order_no,
-            'bill_amount' => $order->bill_amount,
-            'payment_mode' => $order->payment_mode,
-            'payment_status' => $order->payment_status,
-            'order_status' => $order->order_status,
-            'status' => $order->status, // ✅ Include status for frontend
-            'created_at' => $order->created_at,
-            'ebooks' => $order->cart->items->map(function($item) {
-                // ✅ FIX: Calculate total if it's 0
-                $total = $item->total_price;
-                if ($total == 0 && $item->price > 0 && $item->quantity > 0) {
-                    $total = $item->price * $item->quantity;
-                }
-                
-                return [
-                    'id' => $item->ebook->id,
-                    'title' => $item->ebook->title,
-                    'price' => $item->price,
-                    'quantity' => $item->quantity,
-                    'total' => $total, // Use calculated total
-                    'image' => $item->ebook->image, // if you have accessor
-                ];
-            }),
-        ];
-    });
-
-    return response()->json([
-        'status' => true,
-        'data' => $data
-    ]);
-}
-
-
-public function userDownloads(Request $request, $userId)
-{
-    try {
-        // Get all completed orders for the user
-        $orders = Order::with('cart.items.ebook')
-            ->where('user_id', $userId)
-            ->where('status', 'completed') // Only completed orders
+    public function orderhistory(Request $request, $userId)
+    {
+        $orders = Order::where('user_id', $userId)
+            ->where('status', 'completed')
+            ->orderBy('created_at', 'desc')
             ->get();
 
-        $downloads = [];
+        $data = [];
 
         foreach ($orders as $order) {
-            foreach ($order->cart->items as $item) {
-                if ($item->ebook && $item->ebook->ebook_file) {
-                    // Check if this ebook is already added (prevent duplicates)
-                    $existingIds = array_column($downloads, 'id');
-                    if (!in_array($item->ebook->id, $existingIds)) {
-                        $downloads[] = [
-                            'id' => $item->ebook->id,
-                            'title' => $item->ebook->title,
-                            'description' => $item->ebook->description,
-                            'image' => $item->ebook->image, // ✅ ADD THIS LINE
-                            'file' => $item->ebook->ebook_file,
-                            'file_url' => asset('storage/ebooks/' . $item->ebook->ebook_file),
-                            'purchased_at' => $order->created_at,
-                            'order_no' => $order->order_no,
-                        ];
-                    }
-                }
-            }
-        }
 
-        if (empty($downloads)) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No downloads available',
-                'data' => []
-            ]);
+            $items = \DB::table('cart_items')
+                ->join('ebooks', 'cart_items.ebook_id', '=', 'ebooks.id')
+                ->leftJoin('ebook_images', 'ebooks.id', '=', 'ebook_images.ebook_id')
+                ->where('cart_items.cart_id', $order->cart_id)
+                ->select(
+                    'ebooks.id',
+                    'ebooks.title',
+                    'cart_items.price',
+                    'cart_items.quantity',
+                    'cart_items.total_price',
+                    'ebook_images.image_path'
+                )
+                ->get();
+
+            $ebooks = [];
+
+            foreach ($items as $item) {
+
+                $ebooks[] = [
+                    'id' => $item->id,
+                    'title' => $item->title,
+                    'price' => $item->price,
+                    'quantity' => $item->quantity,
+                    'total' => $item->total_price ?: ($item->price * $item->quantity),
+                    'image' => $item->image_path
+                        ? url('laravel_project/public/'.$item->image_path)
+                        : null,
+                ];
+            }
+
+            $data[] = [
+                'id' => $order->id,
+                'order_no' => $order->order_no,
+                'bill_amount' => $order->bill_amount,
+                'status' => $order->status,
+                'created_at' => $order->created_at,
+                'ebooks' => $ebooks,
+            ];
         }
 
         return response()->json([
             'status' => true,
-            'data' => $downloads
+            'data' => $data,
         ]);
-
-    } catch (\Throwable $th) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Failed to fetch downloads',
-            'error' => $th->getMessage()
-        ], 500);
     }
-}
 
+    public function userDownloads($userId)
+    {
+        try {
+
+            $downloads = DB::table('ebook_access')
+                ->join('ebooks', 'ebook_access.ebook_id', '=', 'ebooks.id')
+                ->leftJoin('ebook_images', 'ebooks.id', '=', 'ebook_images.ebook_id')
+                ->where('ebook_access.user_id', $userId)
+                ->where('ebook_access.is_active', 1)
+                ->select(
+                    'ebooks.id',
+                    'ebooks.title',
+                    'ebooks.description',
+                    'ebook_images.image_path',
+                    'ebook_access.created_at'
+                )
+                ->groupBy(
+                    'ebooks.id',
+                    'ebooks.title',
+                    'ebooks.description',
+                    'ebook_images.image_path',
+                    'ebook_access.created_at'
+                )
+                ->orderByDesc('ebook_access.created_at')
+                ->get();
+
+            $data = [];
+
+            foreach ($downloads as $item) {
+
+                $data[] = [
+                    'id' => $item->id,
+                    'title' => $item->title,
+                    'description' => $item->description,
+
+                    'image' => $item->image_path
+                        ? url('laravel_project/public/'.$item->image_path)
+                        : null,
+
+                    // direct secure download api
+                    'file_url' => url('api/download-ebook/'.$item->id.'?user_id='.$userId),
+
+                    'purchased_at' => $item->created_at,
+                ];
+            }
+
+            return response()->json([
+                'status' => true,
+                'data' => $data,
+            ]);
+
+        } catch (\Throwable $th) {
+
+            return response()->json([
+                'status' => false,
+                'message' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DOWNLOAD EBOOK
+    |--------------------------------------------------------------------------
+    */
+    public function downloadEbook(Request $request, $id)
+    {
+        try {
+            $userId = $request->user_id;
+
+            if (! $userId) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'User ID missing',
+                ], 400);
+            }
+
+            // Check purchase access
+            $access = DB::table('ebook_access')
+                ->where('user_id', $userId)
+                ->where('ebook_id', $id)
+                ->where('is_active', 1)
+                ->first();
+
+            if (! $access) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Access denied',
+                ], 403);
+            }
+
+            $ebook = Ebook::find($id);
+
+            if (! $ebook || ! $ebook->ebook_file) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'File not found',
+                ], 404);
+            }
+
+            $path = public_path($ebook->ebook_file);
+
+            if (! File::exists($path)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Physical file missing',
+                ], 404);
+            }
+
+            return response()->download(
+                $path,
+                basename($path),
+                [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'attachment; filename="'.basename($path).'"',
+                ]
+            );
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => false,
+                'message' => $th->getMessage(),
+            ], 500);
+        }
+    }
 }
