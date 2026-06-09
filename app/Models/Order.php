@@ -17,8 +17,17 @@ class Order extends Model
         'bill_amount',
         'order_no',
         'status',
-        'transaction_id', // ✅ ADD THIS
-        'payment_response', // ✅ ADD THIS (optional, for debugging)
+        'payment_response',
+        'transaction_id',
+        'txn_token',
+        'txn_id',
+        'bank_txn_id',
+        'payment_mode',
+        'txn_date',
+        'gateway',
+        'payment_status',
+        'status_response',
+
     ];
 
     // Relationships

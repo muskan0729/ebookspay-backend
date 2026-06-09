@@ -45,6 +45,10 @@ class ComposerStaticInit9c491b8531eec05ba41a11d9276a5749
         array (
             'voku\\' => 5,
         ),
+        'p' => 
+        array (
+            'paytm\\paytmchecksum\\' => 20,
+        ),
         'W' => 
         array (
             'Whoops\\' => 7,
@@ -183,6 +187,10 @@ class ComposerStaticInit9c491b8531eec05ba41a11d9276a5749
         'voku\\' => 
         array (
             0 => __DIR__ . '/..' . '/voku/portable-ascii/src/voku',
+        ),
+        'paytm\\paytmchecksum\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/paytm/paytmchecksum/paytmchecksum',
         ),
         'Whoops\\' => 
         array (
@@ -577,6 +585,7 @@ class ComposerStaticInit9c491b8531eec05ba41a11d9276a5749
         'App\\Models\\Category' => __DIR__ . '/../..' . '/app/Models/Category.php',
         'App\\Models\\Coupon' => __DIR__ . '/../..' . '/app/Models/Coupon.php',
         'App\\Models\\Ebook' => __DIR__ . '/../..' . '/app/Models/Ebook.php',
+        'App\\Models\\EbookAccess' => __DIR__ . '/../..' . '/app/Models/EbookAccess.php',
         'App\\Models\\EbookImage' => __DIR__ . '/../..' . '/app/Models/EbookImage.php',
         'App\\Models\\Order' => __DIR__ . '/../..' . '/app/Models/Order.php',
         'App\\Models\\User' => __DIR__ . '/../..' . '/app/Models/User.php',
@@ -6839,6 +6848,7 @@ class ComposerStaticInit9c491b8531eec05ba41a11d9276a5749
         'Whoops\\Util\\Misc' => __DIR__ . '/..' . '/filp/whoops/src/Whoops/Util/Misc.php',
         'Whoops\\Util\\SystemFacade' => __DIR__ . '/..' . '/filp/whoops/src/Whoops/Util/SystemFacade.php',
         'Whoops\\Util\\TemplateHelper' => __DIR__ . '/..' . '/filp/whoops/src/Whoops/Util/TemplateHelper.php',
+        'paytm\\paytmchecksum\\PaytmChecksum' => __DIR__ . '/..' . '/paytm/paytmchecksum/paytmchecksum/PaytmChecksum.php',
         'voku\\helper\\ASCII' => __DIR__ . '/..' . '/voku/portable-ascii/src/voku/helper/ASCII.php',
     );
 
